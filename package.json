@@ -1,0 +1,19 @@
+{
+  "name": "skyblockbot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "bin": {
+    "skyblockbot": "main.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Riley Adams",
+  "license": "ISC",
+  "dependencies": {
+    "collections": "^5.1.11",
+    "discord.js": "^12.2.0",
+    "list": "^2.0.19"
+  }
+}
