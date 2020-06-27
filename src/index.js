@@ -10,7 +10,7 @@ const Discord = require('discord.js');
 const client = new Discord.Client();
 
 //Replace the string below with your personal bot key
-client.login('Your Bot Key Here');
+client.login('Your token here');
 
 var Set = require("collections/set.js");
 var fs = require('fs');
@@ -139,12 +139,24 @@ client.on('message', function(message){
 			return;
 		}
 		var gameTotals = new Map();
+		var topPlayed = new Map();
+		var highestSingle = ["Name", "Game", 0];
+		
 		for(let [k1, v1] of userLog.get(message.guild)){
 			for(let [k2, v2] of v1){
 				if(gameTotals.has(k2)){
 					gameTotals.set(k2, gameTotals.get(k2) + v2);
+					if(v2 > userLog.get(message.guild).get(topPlayed.get(k2)).get(k2)){
+						topPlayed.set(k2, k1);
+					}
 				}else{
 					gameTotals.set(k2, v2);
+					topPlayed.set(k2, k1);
+				}
+				if(v2 > highestSingle[2]){
+					highestSingle[0] = k1;
+					highestSingle[1] = k2;
+					highestSingle[2] = v2;
 				}
 			}
 		}
@@ -152,7 +164,11 @@ client.on('message', function(message){
 		
 		var out = "";
 		var max = 0;
+		var firstKey;
 		for (let [k, v] of sortedGames) {
+			if(max == 0){
+				firstKey = k;
+			}
 			if(max > 9){
 				break;
 			}
@@ -164,11 +180,21 @@ client.on('message', function(message){
 				out = out + k + " played for " + Math.round(v / 60 / 60)+" hours"+"\n";
 			}
 			max = max + 1;
-		}out = out + "Since "+(runTime.getMonth()+1)+"/"+runTime.getDate();
-		message.channel.send(out);
+		}
+		getTopPlayed(topPlayed, client, firstKey, message, runTime, out, highestSingle);
 	}else if(message.content == "-track help"){
 		message.channel.send("Current commands are:\n\"-track function\" Explains what this bot does and how to get started\n\"-track opt in\" allows you to be tracked by the bot\n\"-track opt out\" stops you from being tracked by the bot\n\"-track stats\" gets combined stats of users in this server\n\"-track time\" prints your time recorded on games");
 	}else if(message.content == "-track function"){
 		message.channel.send("This bot collects game data on users that opt in, which allows it to see how much time a user plays a game while the bot was running. To opt in do \"-track opt in\", to see personal stats do \"-track time\", to see server wide stats do \"-track stats\"");
 	}
 });
+
+async function getTopPlayed(topPlayed, client, firstKey, message, runTime, out, highestSingle){
+	let result = await client.users.fetch(topPlayed.get(firstKey));
+	out = out + message.guild.member(result).displayName + " played the top game the most\n";
+	out = out + message.guild.member(highestSingle[0]).displayName + " played a single game("+highestSingle[1]+") the most, for "+Math.round(highestSingle[2] / 60 / 60)+" hours\n";
+	out = out + "Since "+(runTime.getMonth()+1)+"/"+runTime.getDate();
+
+	message.channel.send(out);
+	return result;
+}
