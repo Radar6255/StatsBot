@@ -67,7 +67,7 @@ client.on('presenceUpdate', function(oldMember, newMember){
 					
 					if (userLog.get(oldMember.guild).has(oldMember.user.id)){
 						if(userLog.get(oldMember.guild).get(oldMember.user.id).has(oldMember.activities[i].name)){
-							userLog.get(oldMember.guild).get(oldMember.user.id).set(oldMember.activities[i].name, userLog.get(oldMember.user.id).get(oldMember.activities[i].name) + timeAdded);
+							userLog.get(oldMember.guild).get(oldMember.user.id).set(oldMember.activities[i].name, userLog.get(oldMember.guild).get(oldMember.user.id).get(oldMember.activities[i].name) + timeAdded);
 						}else{
 							userLog.get(oldMember.guild).get(oldMember.user.id).set(oldMember.activities[i].name, timeAdded);
 						}
