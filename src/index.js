@@ -61,6 +61,11 @@ client.on('presenceUpdate', function(oldMember, newMember){
 				if(endedGame && oldMember.activities[i].timestamps){
 					var timeAdded = (Date.now() - oldMember.activities[i].timestamps.start) / 1000;
 					
+					// Used to check if discord failed to get the start time and in general make sure that the time added isn't ridiculus
+					if(timeAdded > 31540000){
+						return;
+					}
+					
 					if(!userLog.has(oldMember.guild)){
 						userLog.set(oldMember.guild, new Map());
 					}
