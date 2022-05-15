@@ -3,17 +3,17 @@
 // Description: This is a Discord bot that tracks the games played by opted in users and track their total time played over the bots running time
 // 				Use the "-track help" command in a channel when the bot is running to see commands, "-track function" will give you more information
 // To run you need discord.js, collections, and list
-'use strict';
+//'use strict';
 
-const Discord = require('discord.js');
-
-const client = new Discord.Client();
+import {token} from './config.js';
+import {Client, Intents} from 'discord.js';
+const client = new Client({intents: [Intents.FLAGS.GUILD_PRESENCES, Intents.FLAGS.GUILDS], token: token});
 
 //Replace the string below with your personal bot key
-client.login('Your token here');
+client.login(token);
 
-var Set = require("collections/set.js");
-var fs = require('fs');
+import Set from "collections/set.js";
+import fs from 'fs';
 var runTime = new Date();
 
 let userLog = new Map();
@@ -59,6 +59,7 @@ client.on('presenceUpdate', function(oldMember, newMember){
 					}
 				}
 				if(endedGame && oldMember.activities[i].timestamps){
+					console.log("Added stat");
 					var timeAdded = (Date.now() - oldMember.activities[i].timestamps.start) / 1000;
 					
 					// Used to check if discord failed to get the start time and in general make sure that the time added isn't ridiculus
@@ -68,6 +69,7 @@ client.on('presenceUpdate', function(oldMember, newMember){
 					
 					if(!userLog.has(oldMember.guild)){
 						userLog.set(oldMember.guild, new Map());
+						console.log("Added guild to log");
 					}
 					
 					if (userLog.get(oldMember.guild).has(oldMember.user.id)){
@@ -87,119 +89,137 @@ client.on('presenceUpdate', function(oldMember, newMember){
 	}
 });
 
-client.on('message', function(message){
-	if(message.content == "-track time") {
-		if(userLog.has(message.guild) && userLog.get(message.guild).has(message.member.user.id)){
-			var out = "";
-			for (let [k, v] of userLog.get(message.guild).get(message.member.user.id)) {
-				if(v < 60){
-					out = out + k + " played for " + Math.round(v)+" seconds"+"\n";
-				}else if(v < 60*60){
-					out = out + k + " played for " + Math.round(v / 60)+" minutes"+"\n";
-				}else{
-					out = out + k + " played for " + Math.round(v / 60 / 60)+" hours"+"\n";
-				}
-			}out = out + "Since "+(runTime.getMonth()+1)+"/"+runTime.getDate();
-			message.channel.send(out);
-		}else{
-			message.channel.send("No games played yet");
-		}
-	}else if(message.content == "-track opt in"){
-		if(tracking.has(message.member.user.id)){
-			message.channel.send("<@"+message.member.user+">" + " appears to have already been opted in");
-		}else{
-			message.channel.send("<@"+message.member.user+">" + " has been opted in. This allows the bot to track when you play games and store your unique discord id so that it can remember if you have opted in or not.");
-			tracking.add(message.member.user.id);
-		}
-		
-		var out = "";
-		for (let user of tracking){
-			out = out + user + "\n";
-		}
-		
-		const data = new Uint8Array(Buffer.from(out));
-		fs.writeFile('tracking.txt', data, function (err) {
-		  if (err) return console.log(err);
-		});
-		
-	}else if(message.content == "-track opt out"){
-		if(tracking.delete(message.member.user.id)){
-			message.channel.send("<@"+message.member.user+">" + " has been opted out successfully");
-			
-			var out = "";
-			for (let user of tracking){
-				out = out + user + "\n";
-			}
-			
-			const data = new Uint8Array(Buffer.from(out));
-			fs.writeFile('tracking.txt', data, function (err) {
-			  if (err) return console.log(err);
-			});
-		}else{
-			message.channel.send("<@"+message.member.user+">" + " wasn't opted in");
-		}
-	}else if(message.content == "-track stats"){
-		if(!userLog.has(message.guild)){
-			message.channel.send("There are no stats for this server");
-			return;
-		}
-		var gameTotals = new Map();
-		var topPlayed = new Map();
-		var highestSingle = ["Name", "Game", 0];
-		
-		for(let [k1, v1] of userLog.get(message.guild)){
-			for(let [k2, v2] of v1){
-				if(gameTotals.has(k2)){
-					gameTotals.set(k2, gameTotals.get(k2) + v2);
-					if(v2 > userLog.get(message.guild).get(topPlayed.get(k2)).get(k2)){
-						topPlayed.set(k2, k1);
-					}
-				}else{
-					gameTotals.set(k2, v2);
-					topPlayed.set(k2, k1);
-				}
-				if(v2 > highestSingle[2]){
-					highestSingle[0] = k1;
-					highestSingle[1] = k2;
-					highestSingle[2] = v2;
-				}
-			}
-		}
-		const sortedGames = new Map([...gameTotals.entries()].sort((a, b) => b[1] - a[1]));
-		
-		var out = "";
-		var max = 0;
-		var firstKey;
-		for (let [k, v] of sortedGames) {
-			if(max == 0){
-				firstKey = k;
-			}
-			if(max > 9){
-				break;
-			}
-			if(v < 60){
-				out = out + k + " played for " + Math.round(v)+" seconds"+"\n";
-			}else if(v < 60*60){
-				out = out + k + " played for " + Math.round(v / 60)+" minutes"+"\n";
-			}else{
-				out = out + k + " played for " + Math.round(v / 60 / 60)+" hours"+"\n";
-			}
-			max = max + 1;
-		}
-		getTopPlayed(topPlayed, client, firstKey, message, runTime, out, highestSingle);
-	}else if(message.content == "-track help"){
-		message.channel.send("Current commands are:\n\"-track function\" Explains what this bot does and how to get started\n\"-track opt in\" allows you to be tracked by the bot\n\"-track opt out\" stops you from being tracked by the bot\n\"-track stats\" gets combined stats of users in this server\n\"-track time\" prints your time recorded on games");
-	}else if(message.content == "-track function"){
-		message.channel.send("This bot collects game data on users that opt in, which allows it to see how much time a user plays a game while the bot was running. To opt in do \"-track opt in\", to see personal stats do \"-track time\", to see server wide stats do \"-track stats\"");
+client.on("interactionCreate", async (interaction) => {
+	if (!interaction.isCommand()){
+		return;
 	}
+
+	const { commandName } = interaction
+
+    switch(commandName){
+        case "track_time":
+            if(userLog.has(interaction.guild) && userLog.get(interaction.guild).has(interaction.member.user.id)){
+                var out = "";
+                for (let [k, v] of userLog.get(interaction.guild).get(interaction.member.user.id)) {
+                    if(v < 60){
+                        out = out + k + " played for " + Math.round(v)+" seconds"+"\n";
+                    }else if(v < 60*60){
+                        out = out + k + " played for " + Math.round(v / 60)+" minutes"+"\n";
+                    }else{
+                        out = out + k + " played for " + Math.round(v / 60 / 60)+" hours"+"\n";
+                    }
+                }out = out + "Since "+(runTime.getMonth()+1)+"/"+runTime.getDate();
+                interaction.reply(out);
+            }else{
+                interaction.reply("No games played yet");
+            }
+            break;
+
+        case "track_opt_in":
+            if(tracking.has(interaction.member.user.id)){
+                interaction.reply("<@"+interaction.member.user+">" + " appears to have already been opted in");
+            }else{
+                interaction.reply("<@"+interaction.member.user+">" + " has been opted in. This allows the bot to track when you play games and store your unique discord id so that it can remember if you have opted in or not.");
+                tracking.add(interaction.member.user.id);
+            }
+            
+            var out = "";
+            for (let user of tracking){
+                out = out + user + "\n";
+            }
+            
+            const data = new Uint8Array(Buffer.from(out));
+            fs.writeFile('tracking.txt', data, function (err) {
+              if (err) console.log(err);
+            });
+            break;
+
+        case "track_opt_out":
+            if(tracking.delete(interaction.member.user.id)){
+                interaction.reply("<@"+interaction.member.user+">" + " has been opted out successfully");
+                
+                var out = "";
+                for (let user of tracking){
+                    out = out + user + "\n";
+                }
+                
+                const data = new Uint8Array(Buffer.from(out));
+                fs.writeFile('tracking.txt', data, function (err) {
+                  if (err) return console.log(err);
+                });
+            }else{
+                interaction.reply("<@"+interaction.member.user+">" + " wasn't opted in");
+            }
+            break;
+        
+        case "track_stats":
+            if(!userLog.has(interaction.guild)){
+                console.log("No games played in this server or not properly adding server to log");
+                interaction.reply("There are no stats for this server");
+                return;
+            }
+            var gameTotals = new Map();
+            var topPlayed = new Map();
+            var highestSingle = ["Name", "Game", 0];
+            
+            for(let [k1, v1] of userLog.get(interaction.guild)){
+                for(let [k2, v2] of v1){
+                    if(gameTotals.has(k2)){
+                        gameTotals.set(k2, gameTotals.get(k2) + v2);
+                        if(v2 > userLog.get(interaction.guild).get(topPlayed.get(k2)).get(k2)){
+                            topPlayed.set(k2, k1);
+                        }
+                    }else{
+                        gameTotals.set(k2, v2);
+                        topPlayed.set(k2, k1);
+                    }
+                    if(v2 > highestSingle[2]){
+                        highestSingle[0] = k1;
+                        highestSingle[1] = k2;
+                        highestSingle[2] = v2;
+                    }
+                }
+            }
+            const sortedGames = new Map([...gameTotals.entries()].sort((a, b) => b[1] - a[1]));
+            
+            var out = "";
+            var max = 0;
+            var firstKey;
+            for (let [k, v] of sortedGames) {
+                if(max == 0){
+                    firstKey = k;
+                }
+                if(max > 9){
+                    break;
+                }
+                if(v < 60){
+                    out = out + k + " played for " + Math.round(v)+" seconds"+"\n";
+                }else if(v < 60*60){
+                    out = out + k + " played for " + Math.round(v / 60)+" minutes"+"\n";
+                }else{
+                    out = out + k + " played for " + Math.round(v / 60 / 60)+" hours"+"\n";
+                }
+                max = max + 1;
+            }
+            getTopPlayed(topPlayed, firstKey, interaction, runTime, out, highestSingle);
+            break;
+
+        case "track_help":
+            interaction.reply("Current commands are:\n\"/track_function\" Explains what this bot does and how to get started\n\"/track_opt_in\" allows you to be tracked by the bot\n\"/track_opt_out\" stops you from being tracked by the bot\n\"/track_stats\" gets combined stats of users in this server\n\"/track_time\" prints your time recorded on games");
+            break;
+
+        case "track_function":
+            interaction.reply("This bot collects game data on users that opt in, which allows it to see how much time a user plays a game while the bot was running. To opt in do \"/track_opt_in\", to see personal stats do \"/track_time\", to see server wide stats do \"/track_stats\"");
+            break;
+    }
 });
 
-async function getTopPlayed(topPlayed, client, firstKey, message, runTime, out, highestSingle){
-	let result = await client.users.fetch(topPlayed.get(firstKey));
-	out = out + message.guild.member(result).displayName + " played the top game the most\n";
-	out = out + message.guild.member(highestSingle[0]).displayName + " played a single game("+highestSingle[1]+") the most, for "+Math.round(highestSingle[2] / 60 / 60)+" hours\n";
+async function getTopPlayed(topPlayed, firstKey, interaction, runTime, out, highestSingle){
+    let playedTopUser = (await interaction.guild.members.fetch(topPlayed.get(firstKey))).displayName;
+    let playedHighestSingle = (await interaction.guild.members.fetch(highestSingle[0])).displayName;
+	out = out + playedTopUser + " played the top game the most\n";
+	out = out + playedHighestSingle + " played a single game("+highestSingle[1]+") the most, for "+Math.round(highestSingle[2] / 60 / 60)+" hours\n";
 	out = out + "Since "+(runTime.getMonth()+1)+"/"+runTime.getDate();
 
-	message.channel.send(out);
-	return result;
+	interaction.reply(out);
 }
