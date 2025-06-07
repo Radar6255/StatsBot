@@ -1,8 +1,10 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { REST } from '@discordjs/rest';
 import { Routes } from 'discord-api-types/v9';
-import { clientId, token } from './config.js';
 
+if (!process.env.DISCORD_TOKEN || !process.env.DISCORD_CLIENT_ID) {
+	process.exit(1);
+}
 const commands = [
 	new SlashCommandBuilder().setName('track_help').setDescription('Displays a help message for StatsBot'),
 	new SlashCommandBuilder().setName('track_function').setDescription('Explains the purpose of this bot'),
@@ -13,8 +15,8 @@ const commands = [
 ]
 	.map(command => command.toJSON());
 
-const rest = new REST({ version: '9' }).setToken(token);
+const rest = new REST({ version: '9' }).setToken(process.env.TOKEN);
 
-rest.put(Routes.applicationCommands(clientId), { body: commands })
+rest.put(Routes.applicationCommands(process.env.DISCORD_CLIENT_ID), { body: commands })
 	.then(() => console.log('Successfully registered application commands.'))
 	.catch(console.error);

@@ -5,13 +5,17 @@
 // To run you need discord.js, collections, and list
 //'use strict';
 
-import {token} from './config.js';
 import {DB} from './db.js';
 import {Client, Intents} from 'discord.js';
-const client = new Client({intents: [Intents.FLAGS.GUILD_PRESENCES, Intents.FLAGS.GUILDS], token: token});
+
+if (!process.env.DISCORD_TOKEN) {
+	process.exit(1);
+}
+
+const client = new Client({intents: [Intents.FLAGS.GUILD_PRESENCES, Intents.FLAGS.GUILDS], token: process.env.DISCORD_TOKEN});
 
 //Replace the string below with your personal bot key
-client.login(token);
+client.login(process.env.DISCORD_TOKEN);
 
 import Set from "collections/set.js";
 import fs from 'fs';
