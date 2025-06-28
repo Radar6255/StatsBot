@@ -97,31 +97,16 @@ client.on("interactionCreate", async (interaction) => {
 			var out = "";
 			for (let row of stats) {
 			    if(row.time_seconds < 60){
-				out = out + row.game_name + " played for " + Math.round(row.time_seconds)+" seconds"+"\n";
+				out = out + row.game_name + " played for " + Math.round(row.time_seconds)+" seconds\n";
 			    }else if(row.time_seconds < 60*60){
-				out = out + row.game_name + " played for " + Math.round(row.time_seconds / 60)+" minutes"+"\n";
+				out = out + row.game_name + " played for " + Math.round(row.time_seconds / 60)+" minutes\n";
 			    }else{
-				out = out + row.game_name + " played for " + Math.round(row.time_seconds / 60 / 60)+" hours"+"\n";
+				out = out + row.game_name + " played for " + Math.round(row.time_seconds / 60 / 60)+" hours\n";
 			    }
 			}
+			out = out + "Played " + stats.length + " unique games!\n";
 			interaction.reply(out);
 		});
-//            if(userLog.has(interaction.guild) && userLog.get(interaction.guild).has(interaction.member.user.id)){
-//                var out = "";
-//                for (let [k, v] of userLog.get(interaction.guild).get(interaction.member.user.id)) {
-//                    if(v < 60){
-//                        out = out + k + " played for " + Math.round(v)+" seconds"+"\n";
-//                    }else if(v < 60*60){
-//                        out = out + k + " played for " + Math.round(v / 60)+" minutes"+"\n";
-//                    }else{
-//                        out = out + k + " played for " + Math.round(v / 60 / 60)+" hours"+"\n";
-//                    }
-//                }
-//		    out = out + "Since "+(runTime.getMonth()+1)+"/"+runTime.getDate();
-//                interaction.reply(out);
-//            }else{
-//                interaction.reply("No games played yet");
-//            }
             break;
 
         case "track_opt_in":
@@ -156,11 +141,11 @@ client.on("interactionCreate", async (interaction) => {
 				}
 
 				if(row.time < 60){
-				    out = out + row.game_name + " played for " + Math.round(row.time)+" seconds"+"\n";
+				    out = out + row.game_name + " played for " + Math.round(row.time)+" seconds\n";
 				}else if(row.time < 60*60){
-				    out = out + row.game_name + " played for " + Math.round(row.time / 60)+" minutes"+"\n";
+				    out = out + row.game_name + " played for " + Math.round(row.time / 60)+" minutes\n";
 				}else{
-				    out = out + row.game_name + " played for " + Math.round(row.time / 60 / 60)+" hours"+"\n";
+				    out = out + row.game_name + " played for " + Math.round(row.time / 60 / 60)+" hours\n";
 				}
 				c++;
 
