@@ -9,6 +9,7 @@ import {DB} from './db.js';
 import {Client, Intents} from 'discord.js';
 
 if (!process.env.DISCORD_TOKEN) {
+	console.error('DISCORD_TOKEN environment variable is missing!');
 	process.exit(1);
 }
 
@@ -19,11 +20,12 @@ client.login(process.env.DISCORD_TOKEN);
 
 import Set from "collections/set.js";
 import fs from 'fs';
-var runTime = new Date();
 
-let userLog = new Map();
-var tracking = new Set();
 let db = new DB();
+let steamGameList = null;
+let steamUpdateLast = null;
+let genreCalls = new Set();
+
 
 client.on('rateLimit', (rateLimitInfo) => {
 	console.log(rateLimitInfo.method);
@@ -35,6 +37,70 @@ client.on('ready', () => {
 	client.user.setActivity("\"-track help\" for commands", {type:2});
 	console.log('Bot is ready');
 });
+
+async function handleGenre(gameName) {
+	// First check to see if this game already has its genres populated
+	try {
+		if (await db.gameHasGenres(gameName)) {
+			return;
+		}
+	} catch (err) {
+		console.error("<3>Unable to find if game has genres!");
+		return;
+	}
+
+	if (genreCalls.has(gameName)) {
+		return;
+	}
+	genreCalls.add(gameName);
+
+
+	// Now see if we have the steam game list
+	try {
+		if (steamGameList == null || Date.now() - steamUpdateLast > 1000 * 60 * 60 * 24) {
+			const res = await fetch("https://api.steampowered.com/ISteamApps/GetAppList/v2/");
+			steamGameList = await res.json();
+			steamUpdateLast = Date.now();
+		}
+	} catch (err) {
+		console.error("<3>Unable to get steam game list!");
+		return;
+	}
+
+	// Now we know that the steam game list is populated
+	// Need to find the appid for the game
+	let appid = null;
+
+	console.time("Find appid");
+	for (let game of steamGameList.applist.apps) {
+		if (game.name == gameName) {
+			appid = game.appid;
+			break;
+		}
+	}
+	console.timeEnd("Find appid");
+
+	if (appid == null) {
+		return;
+	}
+
+	console.log(`Found appid ${appid} for ${gameName}!`);
+
+	// All that is left is doing another HTTP call to get the genres and storing that in the DB
+	try {
+		const res = await fetch(`https://store.steampowered.com/api/appdetails?appids=${appid}`);
+		const gameData = await res.json();
+
+		for (let genre of gameData[appid].data.genres) {
+			await db.addGenre(gameName, genre.description);
+		}
+		console.log(`Added new genres for ${gameName}!`);
+	} catch (err) {
+		console.error(`<3>Unable to get genres for ${gameName}!`);
+		genreCalls.delete(gameName);
+		return;
+	}
+}
 
 // Called when anyone changes status in any server the bot is in
 client.on('presenceUpdate', function(oldMember, newMember){
@@ -59,6 +125,7 @@ client.on('presenceUpdate', function(oldMember, newMember){
 						}
 
 						console.log(`Adding stat for user(${oldMember.user.id}), game(${oldMember.activities[i].name}), time(${timeAdded}).`);
+						handleGenre(oldMember.activities[i].name);
 						db.addStat(oldMember.user.id, oldMember.activities[i].name, timeAdded);
 					}
 				}
@@ -86,6 +153,54 @@ client.on("interactionCreate", async (interaction) => {
 	const { commandName } = interaction
 
     switch(commandName){
+	case "track_genre":
+		db.getGenreTimePlayed(interaction.member.user.id).then((stats) => {
+			if (stats.length == 0) {
+				interaction.reply("No games played yet");
+				return;
+			}
+
+			var out = "";
+			for (let row of stats) {
+			    if(row.time_seconds < 60){
+				out = out + row.genre + " played for " + Math.round(row.time)+" seconds\n";
+			    }else if(row.time_seconds < 60*60){
+				out = out + row.genre + " played for " + Math.round(row.time / 60)+" minutes\n";
+			    }else{
+				out = out + row.genre + " played for " + Math.round(row.time / 60 / 60)+" hours\n";
+			    }
+			}
+			out = out + "Played " + stats.length + " unique genres!\n";
+			interaction.reply(out);
+		});
+		break;
+	case "track_server_genre":
+		db.getGuildGenreStats(interaction.guild.id).then((stats) => {
+			if (stats.length == 0) {
+				interaction.reply("No games played yet");
+				return;
+			}
+
+			var out = "";
+			let c = 0;
+			for (let row of stats) {
+			    if(row.time_seconds < 60){
+				out = out + row.genre + " played for " + Math.round(row.time)+" seconds\n";
+			    }else if(row.time_seconds < 60*60){
+				out = out + row.genre + " played for " + Math.round(row.time / 60)+" minutes\n";
+			    }else{
+				out = out + row.genre + " played for " + Math.round(row.time / 60 / 60)+" hours\n";
+			    }
+			    c++;
+			    if (c >= 10) {
+				break;
+			    }
+			}
+			out = out + "This server played " + stats.length + " unique genres!\n";
+			interaction.reply(out);
+		});
+		break;
+
         case "track_time":
 		// This just gets one users stats
 		db.getUserStats(interaction.member.user.id).then((stats) => {
@@ -107,7 +222,7 @@ client.on("interactionCreate", async (interaction) => {
 			out = out + "Played " + stats.length + " unique games!\n";
 			interaction.reply(out);
 		});
-            break;
+		break;
 
         case "track_opt_in":
 		db.addUser(interaction.member.user.id).then(() => {
@@ -180,13 +295,3 @@ client.on("interactionCreate", async (interaction) => {
             break;
     }
 });
-
-async function getTopPlayed(topPlayed, firstKey, interaction, runTime, out, highestSingle){
-    let playedTopUser = (await interaction.guild.members.fetch(topPlayed.get(firstKey))).displayName;
-    let playedHighestSingle = (await interaction.guild.members.fetch(highestSingle[0])).displayName;
-	out = out + playedTopUser + " played the top game the most\n";
-	out = out + playedHighestSingle + " played a single game("+highestSingle[1]+") the most, for "+Math.round(highestSingle[2] / 60 / 60)+" hours\n";
-	out = out + "Since "+(runTime.getMonth()+1)+"/"+runTime.getDate();
-
-	interaction.reply(out);
-}

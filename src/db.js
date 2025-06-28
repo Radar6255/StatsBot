@@ -27,6 +27,82 @@ export class DB {
 			this.db.run("CREATE TABLE user_stats (id TEXT NOT NULL, game_name TEXT NOT NULL, time_seconds INTEGER, last_update INTEGER, PRIMARY KEY(id, game_name))");
 
 			this.db.run("CREATE TABLE guild_users (user_id TEXT NOT NULL, guild_id TEXT NOT NULL, PRIMARY KEY(user_id, guild_id))");
+
+			// Creating table to track game genres
+			this.db.run("CREATE TABLE game_genre (game_name TEXT NOT NULL, genre TEXT NOT NULL, PRIMARY KEY(game_name, genre))");
+		});
+	}
+
+	getGuildGenreStats(guild_id) {
+		return new Promise((res, rej) => {
+			this.db.all(`SELECT gg.genre, SUM(time_seconds) time FROM user_stats us
+					JOIN guild_users gu ON us.id = gu.user_id
+					JOIN game_genre gg ON gg.game_name = us.game_name
+					WHERE gu.guild_id = ?
+					GROUP BY gg.genre
+					ORDER BY time DESC`, [guild_id], (err, results) => {
+				if (err) {
+					rej(err);
+					return;
+				}
+
+				res(results);
+			});
+		});
+	}
+
+	getGenreTimePlayed(id) {
+		return new Promise((res, rej) => {
+			this.db.all(`SELECT genre, SUM(time_seconds) time FROM user_stats us
+					JOIN game_genre gg ON gg.game_name = us.game_name
+					WHERE us.id = ?
+					GROUP BY genre
+					ORDER BY time DESC`, [id], (err, results) => {
+				if (err) {
+					rej(err);
+					return;
+				}
+
+				res(results);
+			});
+		});
+	}
+
+	getGameList() {
+		return new Promise((res, rej) => {
+			this.db.all(`SELECT game_name FROM user_stats
+					GROUP BY game_name`, [], (err, results) => {
+				if (err) {
+					rej(err);
+					return;
+				}
+
+				res(results);
+			});
+		});
+	}
+
+	gameHasGenres(game_name) {
+		return new Promise((res, rej) => {
+			this.db.get("SELECT COUNT(*) c FROM game_genre WHERE game_name = ?", [game_name], (err, results) => {
+				if (err) {
+					rej(err);
+					return;
+				}
+				res(results['c'] > 0);
+			});
+		});
+	}
+
+	addGenre(game_name, genre) {
+		return new Promise((res, rej) => {
+			this.db.run("INSERT INTO game_genre VALUES (?, ?)", [game_name, genre], (err, results) => {
+				if (err) {
+					rej(err);
+					return;
+				}
+				res();
+			});
 		});
 	}
 
